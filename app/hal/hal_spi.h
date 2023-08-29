@@ -56,4 +56,13 @@ public:
     void disable();
     void transmit(const uint8_t* buffer, size_t buffer_size);
     void transmit(const uint8_t data);
+
+    void transmit_dma(const uint8_t* buffer, size_t buffer_size);
+    void transmit_dma_cb(
+        const uint8_t* buffer,
+        size_t buffer_size,
+        Hal::Callback callback,
+        void* context);
+    void wait_for_dma_complete();
+    void transmit_dma_blocking(const uint8_t* buffer, size_t buffer_size);
 };

@@ -21,4 +21,10 @@ void hal_init(void) {
 
     NVIC_SetPriority(EXTI15_10_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
     NVIC_EnableIRQ(EXTI15_10_IRQn);
+
+    NVIC_SetPriority(DMA2_Stream0_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+    NVIC_EnableIRQ(DMA2_Stream0_IRQn);
+
+    NVIC_SetPriority(DMA2_Stream2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+    NVIC_EnableIRQ(DMA2_Stream2_IRQn);
 }

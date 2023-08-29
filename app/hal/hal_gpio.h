@@ -108,6 +108,5 @@ public:
     void write(bool value);
     bool read(void);
 
-    typedef void (*Callback)(void* context);
-    void set_interrupt_callback(Callback cb, void* ctx);
+    void set_interrupt_callback(Hal::Callback cb, void* ctx);
 };

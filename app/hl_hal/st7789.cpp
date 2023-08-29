@@ -231,22 +231,22 @@ void ST7789::init() {
 
     delay_ms(25);
     reset();
-    delay_ms(50);
+    // delay_ms(50);
 
     write_command(CMD::SWRESET);
-    delay_ms(150);
+    // delay_ms(150);
     write_command(CMD::SLPOUT);
-    delay_ms(10);
+    // delay_ms(10);
     write_command_data(CMD::COLMOD, 0x55);
-    delay_ms(10);
+    // delay_ms(10);
     write_command_data(CMD::MADCTL, 0x08);
     set_address_window(0, 0, width, height);
     write_command(CMD::INVON);
-    delay_ms(10);
+    // delay_ms(10);
     write_command(CMD::NORON);
-    delay_ms(10);
+    // delay_ms(10);
     write_command(CMD::DISPON);
-    delay_ms(10);
+    // delay_ms(10);
     rotation(0);
 }
 
@@ -270,15 +270,20 @@ void ST7789::rotation(uint8_t rotation) {
 }
 
 void ST7789::fill(uint16_t color) {
+    const size_t lines_per_buffer = 20;
+    uint8_t line_buffer[width * 2 * lines_per_buffer];
+
+    for(size_t i = 0; i < (sizeof(line_buffer) / 2); i++) {
+        line_buffer[i * 2] = color >> 8;
+        line_buffer[i * 2 + 1] = color & 0xFF;
+    }
+
     set_address_window(0, 0, width - 1, height - 1);
     write_command(CMD::RAMWR);
-
     select();
-    for(size_t i = 0; i < width * height; i++) {
-        write_data({
-            uint8_t(color >> 8),
-            uint8_t(color & 0xFF),
-        });
+    data_mode();
+    for(size_t i = 0; i < (height / lines_per_buffer); i++) {
+        spi.transmit_dma_blocking(line_buffer, sizeof(line_buffer));
     }
     deselect();
 }

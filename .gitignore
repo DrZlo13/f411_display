@@ -45,7 +45,6 @@ Brewfile.lock.json
 
 # legendary cmake's
 build
-CMakeLists.txt
 
 # bundle output
 dist
