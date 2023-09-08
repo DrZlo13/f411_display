@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include <stdint.h>
 #include <hal/hal.h>
 
@@ -38,12 +39,37 @@ public:
         HalGpio& gpio_backlight);
     ~ST7789();
 
-    const size_t height;
-    const size_t width;
+    static const size_t height = 280;
+    static const size_t width = 240;
+
+    uint8_t buffer[(height * width * 2) / 2];
 
     void init();
     void rotation(uint8_t rotation);
     void backlight(bool on);
 
     void fill(uint16_t color);
+
+    typedef void (*BufferRenderCallback)(
+        uint8_t* buffer,
+        size_t buffer_size,
+        size_t x,
+        size_t y,
+        size_t width,
+        size_t height,
+        void* context);
+
+    void render_and_send_buffer(BufferRenderCallback callback, void* context);
+
+    bool is_busy();
+
+private:
+    typedef struct {
+        BufferRenderCallback callback;
+        void* context;
+        ST7789* display;
+    } DmaContext;
+
+    std::atomic<bool> busy;
+    DmaContext* dma_context;
 };

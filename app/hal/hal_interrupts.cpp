@@ -186,11 +186,17 @@ extern "C" void DMA2_Stream0_IRQHandler(void) {
         LL_DMA_ClearFlag_TC0(DMA2);
         dma_interrupt_call(DMA2, LL_DMA_STREAM_0);
     }
+    if(LL_DMA_IsActiveFlag_HT0(DMA2)) {
+        LL_DMA_ClearFlag_HT0(DMA2);
+    }
 }
 
 extern "C" void DMA2_Stream2_IRQHandler(void) {
     if(LL_DMA_IsActiveFlag_TC2(DMA2)) {
         LL_DMA_ClearFlag_TC2(DMA2);
         dma_interrupt_call(DMA2, LL_DMA_STREAM_2);
+    }
+    if(LL_DMA_IsActiveFlag_HT2(DMA2)) {
+        LL_DMA_ClearFlag_HT2(DMA2);
     }
 }

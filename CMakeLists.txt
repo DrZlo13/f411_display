@@ -48,7 +48,9 @@ set(SOURCES
 
 add_executable(${PROJECT_NAME}.elf ${SOURCES} ${LINKER_SCRIPT})
 
-target_compile_options(${PROJECT_NAME}.elf PRIVATE
+add_subdirectory("lib/PartyGFX")
+
+set(COMPILE_OPTIONS
     -mcpu=cortex-m4
     -Og
     -g
@@ -77,7 +79,7 @@ target_compile_options(${PROJECT_NAME}.elf PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-Wno-volatile>
 )
 
-target_link_options(${PROJECT_NAME}.elf PRIVATE
+set(LINK_OPTIONS
     -mcpu=cortex-m4
     -T ${LINKER_SCRIPT}
     --specs=nosys.specs
@@ -99,6 +101,22 @@ target_link_options(${PROJECT_NAME}.elf PRIVATE
     # -Wl,--wrap,_free_r
     # -Wl,--wrap,_calloc_r
     # -Wl,--wrap,_realloc_r
+)
+
+target_compile_options("PartyGFX" PRIVATE
+    ${COMPILE_OPTIONS}
+)
+
+target_link_options("PartyGFX" PRIVATE
+    ${LINK_OPTIONS}
+)
+
+target_compile_options(${PROJECT_NAME}.elf PRIVATE
+    ${COMPILE_OPTIONS}
+)
+
+target_link_options(${PROJECT_NAME}.elf PRIVATE
+    ${LINK_OPTIONS}
 )
 
 execute_process(
@@ -134,6 +152,8 @@ target_compile_definitions(${PROJECT_NAME}.elf PRIVATE
 
 set(HEX_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex)
 set(BIN_FILE ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.bin)
+
+target_link_libraries(${PROJECT_NAME}.elf "PartyGFX")
 
 set_target_properties(${PROJECT_NAME}.elf PROPERTIES LINKER_LANGUAGE CXX)
 

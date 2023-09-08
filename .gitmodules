@@ -1,0 +1,3 @@
+[submodule "lib/PartyGFX"]
+	path = lib/PartyGFX
+	url = https://github.com/DrZlo13/PartyGFX.git

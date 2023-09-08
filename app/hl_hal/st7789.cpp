@@ -201,8 +201,8 @@ ST7789::ST7789(
     , spi(spi)
     , x_shift(0)
     , y_shift(20)
-    , height(280)
-    , width(240) {
+    , busy(false)
+    , dma_context(NULL) {
 }
 
 ST7789::~ST7789() {
@@ -229,25 +229,17 @@ void ST7789::init() {
         spi.enable();
     }
 
-    delay_ms(25);
     reset();
-    // delay_ms(50);
 
     write_command(CMD::SWRESET);
-    // delay_ms(150);
     write_command(CMD::SLPOUT);
-    // delay_ms(10);
     write_command_data(CMD::COLMOD, 0x55);
-    // delay_ms(10);
     write_command_data(CMD::MADCTL, 0x08);
     set_address_window(0, 0, width, height);
     write_command(CMD::INVON);
-    // delay_ms(10);
     write_command(CMD::NORON);
-    // delay_ms(10);
     write_command(CMD::DISPON);
-    // delay_ms(10);
-    rotation(0);
+    rotation(2);
 }
 
 void ST7789::rotation(uint8_t rotation) {
@@ -286,6 +278,62 @@ void ST7789::fill(uint16_t color) {
         spi.transmit_dma_blocking(line_buffer, sizeof(line_buffer));
     }
     deselect();
+}
+
+void ST7789::render_and_send_buffer(BufferRenderCallback callback, void* context) {
+    busy = true;
+
+    // render first half of the screen
+    if(callback) {
+        callback(buffer, sizeof(buffer), 0, 0, width, height / 2, context);
+    }
+
+    set_address_window(0, 0, width - 1, height - 1);
+    write_command(CMD::RAMWR);
+    select();
+    data_mode();
+
+    if(dma_context == NULL) {
+        dma_context = new DmaContext({callback, context, this});
+    } else {
+        dma_context->callback = callback;
+        dma_context->context = context;
+    }
+
+    Hal::Callback cb = [](void* context) {
+        DmaContext* dma_context = reinterpret_cast<DmaContext*>(context);
+        ST7789* display = dma_context->display;
+        display->spi.dma_end_transmission();
+
+        // render second half of buffer
+        if(dma_context->callback) {
+            dma_context->callback(
+                display->buffer,
+                sizeof(display->buffer),
+                0,
+                display->height / 2,
+                display->width,
+                display->height / 2,
+                dma_context->context);
+        }
+
+        Hal::Callback cb = [](void* context) {
+            DmaContext* dma_context = reinterpret_cast<DmaContext*>(context);
+            ST7789* display = dma_context->display;
+            display->spi.dma_end_transmission();
+            display->deselect();
+            display->spi.set_data_width(HalSpi::DataWidth::Bits8);
+            display->busy = false;
+        };
+
+        display->spi.transmit_dma_cb(display->buffer, sizeof(display->buffer), cb, dma_context);
+    };
+    spi.set_data_width(HalSpi::DataWidth::Bits16);
+    spi.transmit_dma_cb(buffer, sizeof(buffer), cb, dma_context);
+}
+
+bool ST7789::is_busy() {
+    return busy;
 }
 
 void ST7789::backlight(bool on) {

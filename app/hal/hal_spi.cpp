@@ -81,6 +81,10 @@ void HalSpi::transmit(const uint8_t data) {
     transmit(&data, 1);
 }
 
+void HalSpi::set_data_width(DataWidth data_width) {
+    LL_SPI_SetDataWidth(spi, static_cast<uint32_t>(data_width));
+}
+
 void HalSpi::transmit_dma(const uint8_t* buffer, size_t buffer_size) {
     dma2_stream2_transfer_complete = false;
     Hal::Callback cb = [](void* context) { dma2_stream2_transfer_complete = true; };
@@ -101,9 +105,15 @@ void HalSpi::transmit_dma_cb(
     dma_config.Mode = LL_DMA_MODE_NORMAL;
     dma_config.PeriphOrM2MSrcIncMode = LL_DMA_PERIPH_NOINCREMENT;
     dma_config.MemoryOrM2MDstIncMode = LL_DMA_MEMORY_INCREMENT;
-    dma_config.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_BYTE;
-    dma_config.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_BYTE;
-    dma_config.NbData = buffer_size;
+    if(LL_SPI_GetDataWidth(spi) == LL_SPI_DATAWIDTH_8BIT) {
+        dma_config.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_BYTE;
+        dma_config.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_BYTE;
+        dma_config.NbData = buffer_size;
+    } else {
+        dma_config.PeriphOrM2MSrcDataSize = LL_DMA_PDATAALIGN_HALFWORD;
+        dma_config.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_HALFWORD;
+        dma_config.NbData = buffer_size / 2;
+    }
     dma_config.Priority = LL_DMA_PRIORITY_VERYHIGH;
     LL_DMA_Init(SPI_DMA_CONFIG, &dma_config);
 
@@ -119,13 +129,17 @@ void HalSpi::transmit_dma_cb(
 void HalSpi::wait_for_dma_complete() {
     while(!dma2_stream2_transfer_complete)
         ;
-    HalDma::set_dma_interrupt_callback(SPI_DMA_CONFIG, NULL, NULL);
-    LL_DMA_DeInit(SPI_DMA_CONFIG);
+    dma_end_transmission();
 }
 
 void HalSpi::transmit_dma_blocking(const uint8_t* buffer, size_t buffer_size) {
     transmit_dma(buffer, buffer_size);
     wait_for_dma_complete();
+}
+
+void HalSpi::dma_end_transmission() {
+    HalDma::set_dma_interrupt_callback(SPI_DMA_CONFIG, NULL, NULL);
+    LL_DMA_DeInit(SPI_DMA_CONFIG);
 }
 
 #define MEM_DMA_CONFIG DMA2, LL_DMA_STREAM_0
@@ -172,6 +186,8 @@ void HalDma::memory_set(
     Hal::Callback callback,
     void* context) {
     LL_DMA_DisableStream(MEM_DMA_CONFIG);
+    LL_DMA_DisableIT_TC(MEM_DMA_CONFIG);
+    LL_DMA_DeInit(MEM_DMA_CONFIG);
     LL_DMA_InitTypeDef dma_config = {0};
     LL_DMA_StructInit(&dma_config);
     dma_config.Channel = LL_DMA_CHANNEL_0;
@@ -185,16 +201,17 @@ void HalDma::memory_set(
     dma_config.MemoryOrM2MDstDataSize = LL_DMA_MDATAALIGN_HALFWORD;
     dma_config.NbData = size;
     dma_config.Priority = LL_DMA_PRIORITY_HIGH;
-    dma_config.FIFOMode = LL_DMA_FIFOMODE_ENABLE;
-    dma_config.FIFOThreshold = LL_DMA_FIFOTHRESHOLD_FULL;
-    dma_config.MemBurst = LL_DMA_MBURST_SINGLE;
-    dma_config.PeriphBurst = LL_DMA_PBURST_SINGLE;
-
-    LL_DMA_Init(MEM_DMA_CONFIG, &dma_config);
-
-    LL_DMA_ClearFlag_TC0(DMA2);
+    // dma_config.FIFOMode = LL_DMA_FIFOMODE_ENABLE;
+    // dma_config.FIFOThreshold = LL_DMA_FIFOTHRESHOLD_FULL;
+    // dma_config.MemBurst = LL_DMA_MBURST_SINGLE;
+    // dma_config.PeriphBurst = LL_DMA_PBURST_SINGLE;
 
     HalDma::set_dma_interrupt_callback(MEM_DMA_CONFIG, callback, context);
+    LL_DMA_Init(MEM_DMA_CONFIG, &dma_config);
+
+    LL_DMA_ClearFlag_HT0(DMA2);
+    LL_DMA_ClearFlag_TC0(DMA2);
+
     LL_DMA_EnableIT_TC(MEM_DMA_CONFIG);
 
     LL_DMA_EnableStream(MEM_DMA_CONFIG);
